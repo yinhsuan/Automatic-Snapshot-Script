@@ -49,12 +49,12 @@ def backup(create, list, delete, dataset, args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--create', type=bool)
-    parser.add_argument('--list', type=bool)
-    parser.add_argument('--delete', type=bool)
-    parser.add_argument('--dataset', type=str)
+    parser.add_argument('--create', "-c", default=False, dest="create")
+    parser.add_argument('--list', "-l", default=False, dest="list")
+    parser.add_argument('--delete', "-d", default=False, dest="delete")
+    # parser.add_argument('--dataset', type=str)
     # parser.add_argument('--export', type=bool)
     # parser.add_argument('--import_s', type=bool)
     args = parser.parse_args()
 
-    backup(args.create, args.list, args.delete, args.dataset, args)
+    backup(args.create, args.list, args.delete, args)
