@@ -1,22 +1,23 @@
 #!/usr/local/bin/python
 
-import sys, os, re
-from datetime import datetime
-import subprocess
-from subprocess import Popen
+import sys, datetime, subprocess, os, re
+from Crypto.Cipher import AES
+
+import subprocess as sp
 
 def usage():
     print("Usage:")
-    print("- create ; zfsbak DATASET [ROTATION_CNT]")
+    print("- create: zfsbak DATASET [ROTATION_CNT]")
     print("- list: zfsbak -l|--list [DATASET|ID|DATASET ID]")
     print("- delete: zfsbak -d|--delete [DATASET|ID|DATASET ID...]")
     print("- export: zfsbak -e|--export DATASET [ID]")
     print("- import: zfsbak -i|--import FILENAME DATASET")
     exit(1)
 
+
 def get_snapshots(target_dataset=None):
     snapshots = []
-    out, err = Popen("zfs list -t snapshot", shell=True, stdout=subprocess.PIPE).communicate()
+    out, err = sp.Popen("zfs list -t snapshot", shell=True, stdout=sp.PIPE).communicate()
     out = out.decode()
     for line in out.split('\n')[1:-1]:
         name = line.split(' ')[0]
@@ -33,13 +34,44 @@ def get_snapshots(target_dataset=None):
 
     return snapshots
 
-def list_snapshots():
+
+
+
+def create_snapshot():
+    target_dataset = sys.argv[1]
+
+    if sys.argv[2:]:
+        try:
+            rotation_time = int(sys.argv[2])
+        except ValueError:
+            usage()
+    else:
+        rotation_time = 12
+    snapshots = get_snapshots(target_dataset)
+
+    create_time = datetime.now().strftime('%Y-%m-%d-%H:%M:%S') 
+    cmd = 'zfs snapshot {dataset}@{time}'.format(dataset=target_dataset, time=create_time)
+    sp.Popen(cmd, shell=True).wait()
+    print('Snap {dataset}@{time}'.format(dataset=target_dataset, time=create_time))
+    if len(snapshots) >= rotation_time:
+        num_delete = len(snapshots) - (rotation_time-1)
+        for snapshot in snapshots[:num_delete]:
+            _delete_snapshots(snapshot)
+
+def _delete_snapshots(snapshot):
+    cmd = 'zfs destroy {dataset}@{time}'.format(dataset=snapshot['dataset'], time=snapshot['create_time'])
+    sp.Popen(cmd, shell=True).wait()
+    print('Destroy {dataset}@{time}'.format(dataset=snapshot['dataset'], time=snapshot['create_time']))
+
+
+
+def list_snapshot():
     target_dataset = None
     if sys.argv[2:] != []:
         try:
             target_dataset = int(sys.argv[2])
             target_dataset = None
-        except:
+        except ValueError:
             target_dataset = sys.argv[2]
 
     target_id = None
@@ -52,72 +84,54 @@ def list_snapshots():
                 continue
         
     snapshots = get_snapshots(target_dataset)
-    print("{ID:4}{dataset:20}{time:20}".format(ID='ID', dataset='DATASET', time='TIME'))
+    print("{ID:<4}{dataset:<20}{time:<20}".format(ID='ID', dataset='DATASET', time='TIME'))
     for snapshot in snapshots:
         if target_id == None or target_id == snapshot['id']:
-            print("{ID:4}{dataset:20}{time:20}".format(ID=str(snapshot['id']), dataset=snapshot['dataset'], time=snapshot['create_time']))
+            print("{ID:<4}{dataset:<20}{time:<20}".format(ID=str(snapshot['id']), dataset=snapshot['dataset'], time=snapshot['create_time']))
 
-def create_snapshots():
-    target_dataset = sys.argv[1]
-    snapshots = get_snapshots(target_dataset)
-    rotation_time = 12
-    if sys.argv[2:] != []:
-        try:
-            rotation_time = int(sys.argv[2])
-        except:
-            usage()
-    create_time = datetime.now().strftime('%Y-%m-%d-%H:%M:%S') 
-    cmd = 'zfs snapshot {dataset}@{time}'.format(dataset=target_dataset, time=create_time)
-    Popen(cmd, shell=True).wait()
-    print('Snap {dataset}@{time}'.format(dataset=target_dataset, time=create_time))
-    if len(snapshots) >= rotation_time:
-        num_delete = len(snapshots) - (rotation_time-1)
-        for snapshot in snapshots[:num_delete]:
-            _delete_snapshots(snapshot)
-            
 
-def _delete_snapshots(snapshot):
-    cmd = 'zfs destroy {dataset}@{time}'.format(dataset=snapshot['dataset'], time=snapshot['create_time'])
-    Popen(cmd, shell=True).wait()
-    print('Destroy {dataset}@{time}'.format(dataset=snapshot['dataset'], time=snapshot['create_time']))
 
-def delete_snapshots():
+def delete_snapshot():
     target_dataset = None
     if sys.argv[2:] != []:
         try:
             target_dataset = int(sys.argv[2])
             target_dataset = None
-        except:
+        except ValueError:
             target_dataset = sys.argv[2]
     snapshots = get_snapshots(target_dataset)
-    
+
     target_ids = []
     if sys.argv[2:] != []:
         for argv in sys.argv[2:]:
             try:
                 target_ids.append(int(argv))
-            except:
+            except ValueError:
                 continue
 
     for snapshot in snapshots:
         if target_ids == [] or snapshot['id'] in target_ids:
             cmd = 'zfs destroy {dataset}@{time}'.format(dataset=snapshot['dataset'], time=snapshot['create_time'])
-            Popen(cmd, shell=True).wait()
+            sp.Popen(cmd, shell=True).wait()
             print('Destroy {dataset}@{time}'.format(dataset=snapshot['dataset'], time=snapshot['create_time']))
 
-def main():
-    if len(sys.argv) == 1:
-        usage()
-    elif sys.argv[1] == '--list' or sys.argv[1] == '-l':
-        list_snapshots()
-    elif sys.argv[1] == '--delete' or sys.argv[1] == '-d':
-        delete_snapshots()
-    elif sys.argv[1] == '--export' or sys.argv[1] == '-e':
-        export_snapshots()
-    elif sys.argv[1] == '--import' or sys.argv[1] == '-i':
-        import_snapshots()
-    elif sys.argv[1:] != []:
-        create_snapshots()
+
+
+# def import_snapshot():
+# def export_snapshot():
+
+
 
 if __name__ == '__main__':
-    main()
+    if len(sys.argv) == 1:
+        usage()
+    elif sys.argv[1] == "--list" or sys.argv[1] == "-l":
+        list_snapshot()
+    elif sys.argv[1] == "--delete" or sys.argv[1] == "-d":
+        delete_snapshot()
+    # elif sys.argv[1] == "--export" or sys.argv[1] == "e":
+    #     export_snapshot()
+    # elif sys.argv[1] == "import" or sys.argv[1] == "i":
+    #     import_snapshot()
+    else:
+        create_snapshot()
