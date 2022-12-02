@@ -1,8 +1,6 @@
 #!/usr/local/bin/python
 
-import sys, datetime, subprocess, os, re
-from Crypto.Cipher import AES
-
+import sys, datetime
 import subprocess as sp
 
 def usage():
