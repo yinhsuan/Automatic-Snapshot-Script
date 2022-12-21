@@ -1,6 +1,7 @@
 #!/usr/local/bin/python
 
-import sys, datetime
+import sys
+from datetime import datetime
 import subprocess as sp
 
 def usage():
